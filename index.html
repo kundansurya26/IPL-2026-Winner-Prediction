@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>IPL 2026 Ultimate Hub | Tournament Simulator + Analytics Dashboard</title>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Three.js Core for 3D Background -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background: #050b14;
+            color: #eef2ff;
+        }
+
+        /* 3D Canvas Background */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* Content Layer */
+        .content {
+            position: relative;
+            z-index: 10;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+
+        /* Glassmorphism */
+        .glass-card {
+            background: rgba(12, 20, 35, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 1.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 140, 80, 0.4);
+            background: rgba(18, 28, 45, 0.7);
+        }
+
+        /* Header */
+        .hero {
+            text-align: center;
+            margin-bottom: 1.8rem;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFB347, #FF6B6B, #818CF8, #34D399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .badge-row {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 0.8rem 0;
+        }
+
+        .tech-badge {
+            background: rgba(255,255,255,0.1);
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Simulator Section */
+        .simulator-card {
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .team-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .select-group {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .select-group label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #FFB86C;
+            letter-spacing: 1px;
+        }
+
+        select, .predict-btn {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 1rem;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .predict-btn {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            border: none;
+            font-weight: 700;
+            transition: 0.2s;
+            text-align: center;
+        }
+
+        .predict-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .result-box {
+            background: rgba(0,0,0,0.4);
+            border-radius: 1.2rem;
+            padding: 1rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .winner-name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFD89B, #FFA07A);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Grids */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1000px) {
+            .two-col, .three-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            padding: 1.2rem;
+        }
+
+        .card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            border-left: 3px solid #FF7B54;
+            padding-left: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        th, td {
+            padding: 0.5rem 0.2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            text-align: left;
+        }
+
+        .team-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .team-icon {
+            width: 26px;
+            height: 26px;
+            background: rgba(255,245,210,0.15);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .prob-bar-container {
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            height: 5px;
+            width: 70px;
+        }
+
+        .prob-fill {
+            height: 100%;
+            border-radius: 20px;
+            background: linear-gradient(90deg, #FFB347, #FF6B6B);
+        }
+
+        .reset-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            padding: 0.3rem 1rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+
+        .match-log {
+            max-height: 140px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.7rem;
+            color: #7c8db0;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="content">
+    <!-- Header -->
+    <div class="hero">
+        <h1>🏆 IPL 2026 · Ultimate Prediction Hub</h1>
+        <div class="badge-row">
+            <span class="tech-badge"><i class="fas fa-chart-line"></i> Dynamic Match Simulator</span>
+            <span class="tech-badge"><i class="fas fa-trophy"></i> Full Points Table</span>
+            <span class="tech-badge"><i class="fas fa-robot"></i> Squad Strength AI</span>
+            <span class="tech-badge"><i class="fas fa-chart-simple"></i> Analytics Dashboard</span>
+        </div>
+    </div>
+
+    <!-- Interactive Match Simulator -->
+    <div class="simulator-card glass-card">
+        <div class="team-selector">
+            <div class="select-group">
+                <label><i class="fas fa-flag-checkered"></i> Team A (Home)</label>
+                <select id="teamA">
+                    <option value="CSK">Chennai Super Kings</option><option value="DC">Delhi Capitals</option>
+                    <option value="GT">Gujarat Titans</option><option value="KKR">Kolkata Knight Riders</option>
+                    <option value="LSG">Lucknow Super Giants</option><option value="MI">Mumbai Indians</option>
+                    <option value="PBKS">Punjab Kings</option><option value="RCB" selected>Royal Challengers Bengaluru</option>
+                    <option value="RR">Rajasthan Royals</option><option value="SRH">Sunrisers Hyderabad</option>
+                </select>
+            </div>
+            <div class="select-group">
+                <label><i class="fas fa-flag-checkered"></i> Team B (Away)</label>
+                <select id="teamB">
+                    <option value="CSK">Chennai Super Kings</option><option value="DC">Delhi Capitals</option>
+                    <option value="GT">Gujarat Titans</option><option value="KKR">Kolkata Knight Riders</option>
+                    <option value="LSG">Lucknow Super Giants</option><option value="MI">Mumbai Indians</option>
+                    <option value="PBKS">Punjab Kings</option><option value="RCB">Royal Challengers Bengaluru</option>
+                    <option value="RR" selected>Rajasthan Royals</option><option value="SRH">Sunrisers Hyderabad</option>
+                </select>
+            </div>
+            <div class="select-group">
+                <button class="predict-btn" id="simulateBtn"><i class="fas fa-chart-line"></i> 🏏 Predict Winner & Simulate</button>
+            </div>
+        </div>
+        <div class="result-box" id="resultBox">
+            <i class="fas fa-cricket"></i> Select two different teams and click to predict the winner. Points table updates live.
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem;">
+            <button id="simulateAllBtn" style="background:rgba(100,150,255,0.3); border:1px solid #FFB86C; padding:0.5rem 1rem; border-radius:2rem; cursor:pointer;"><i class="fas fa-forward"></i> Simulate All Remaining Matches</button>
+            <button id="resetBtn" class="reset-btn"><i class="fas fa-sync-alt"></i> Reset Tournament</button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="two-col">
+        <!-- Points Table -->
+        <div class="glass-card card">
+            <h3><i class="fas fa-table"></i> IPL 2026 Points Table</h3>
+            <div style="overflow-x: auto;">
+                <table id="pointsTable">
+                    <thead><tr><th>Team</th><th>M</th><th>W</th><th>L</th><th>Pts</th><th>NRR</th></tr></thead>
+                    <tbody id="pointsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Playoffs & Champion -->
+        <div class="glass-card card">
+            <h3><i class="fas fa-trophy"></i> Playoffs & Champion</h3>
+            <div id="playoffResults" style="background: rgba(0,0,0,0.3); border-radius: 1rem; padding: 0.8rem; font-size:0.8rem;">
+                <i class="fas fa-hourglass-half"></i> League stage in progress...
+            </div>
+            <div id="championHighlight" style="margin-top: 0.8rem; text-align: center;"></div>
+        </div>
+    </div>
+
+    <div class="three-col">
+        <!-- Win Probability (Pre-tournament) -->
+        <div class="glass-card card">
+            <h3><i class="fas fa-chart-pie"></i> Pre-Tournament Win Prob</h3>
+            <canvas id="winProbChart" style="height: 180px; width:100%;"></canvas>
+        </div>
+
+        <!-- Model Benchmark -->
+        <div class="glass-card card">
+            <h3><i class="fas fa-chart-line"></i> Model Benchmark</h3>
+            <table id="modelTable">
+                <thead><tr><th>Model</th><th>Test Acc</th><th>AUC</th></tr></thead>
+                <tbody id="modelBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Overseas Core Strength -->
+        <div class="glass-card card">
+            <h3><i class="fas fa-globe"></i> Overseas Firepower</h3>
+            <table id="overseasTable">
+                <thead><tr><th>Team</th><th>Key Overseas</th></tr></thead>
+                <tbody id="overseasBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Match Log -->
+    <div class="glass-card card">
+        <h3><i class="fas fa-history"></i> Recent Match Results</h3>
+        <div id="matchLog" class="match-log">No matches simulated yet.</div>
+    </div>
+
+    <div class="footer">
+        <i class="fas fa-microchip"></i> Prediction Engine: Squad Strength (86-79) + Home Advantage + Dynamic Form | Round-Robin + Playoffs
+    </div>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    // 3D Background Setup (dense particles)
+    const canvas = document.getElementById('bg-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050b14);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1, 14);
+    const particleCount = 4000;
+    const geom = new THREE.BufferGeometry();
+    const pos = new Float32Array(particleCount * 3);
+    for(let i=0;i<particleCount;i++) {
+        pos[i*3] = (Math.random() - 0.5) * 70;
+        pos[i*3+1] = (Math.random() - 0.5) * 40;
+        pos[i*3+2] = (Math.random() - 0.5) * 40 - 15;
+    }
+    geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xffaa77, size: 0.08, transparent: true, blending: THREE.AdditiveBlending });
+    const stars = new THREE.Points(geom, mat);
+    scene.add(stars);
+    const ambient = new THREE.AmbientLight(0x222222);
+    scene.add(ambient);
+    function animate() {
+        requestAnimationFrame(animate);
+        stars.rotation.y += 0.0005;
+        stars.rotation.x += 0.0003;
+        camera.lookAt(0,0,0);
+        renderer.render(scene, camera);
+    }
+    animate();
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+</script>
+
+<script>
+    // ----------------------------- CORE DATA & SIMULATION ENGINE -----------------------------
+    const TEAMS = ["CSK", "DC", "GT", "KKR", "LSG", "MI", "PBKS", "RCB", "RR", "SRH"];
+    const TEAM_NAMES = {
+        "CSK": "Chennai Super Kings", "DC": "Delhi Capitals", "GT": "Gujarat Titans", "KKR": "Kolkata Knight Riders",
+        "LSG": "Lucknow Super Giants", "MI": "Mumbai Indians", "PBKS": "Punjab Kings", "RCB": "Royal Challengers Bengaluru",
+        "RR": "Rajasthan Royals", "SRH": "Sunrisers Hyderabad"
+    };
+    // Squad Strength (0-100)
+    const STRENGTH = { "CSK":84, "DC":86, "GT":88, "KKR":85, "LSG":83, "MI":87, "PBKS":79, "RCB":86, "RR":82, "SRH":84 };
+    const HOME_BOOST = { "CSK":1.08, "MI":1.06, "RCB":1.07, "KKR":1.05, "RR":1.04, "SRH":1.04, "GT":1.06, "DC":1.03, "LSG":1.03, "PBKS":1.02 };
+    
+    let pointsTable = {};
+    let recentForm = {};
+    let matchesPlayed = new Set();
+    let matchLog = [];
+
+    TEAMS.forEach(t => {
+        pointsTable[t] = { played:0, won:0, lost:0, pts:0, nrr:0 };
+        recentForm[t] = 0.5;
+    });
+
+    function predictWinner(teamA, teamB, homeTeam = teamA) {
+        let sA = STRENGTH[teamA] * (homeTeam === teamA ? HOME_BOOST[teamA] : 1);
+        let sB = STRENGTH[teamB] * (homeTeam === teamB ? HOME_BOOST[teamB] : 1);
+        let formA = recentForm[teamA] * 12;
+        let formB = recentForm[teamB] * 12;
+        let totalA = sA + formA;
+        let totalB = sB + formB;
+        let probA = totalA / (totalA + totalB);
+        let rand = Math.random() * 0.3 - 0.15;
+        probA = Math.min(0.85, Math.max(0.15, probA + rand));
+        let winner = Math.random() < probA ? teamA : teamB;
+        // Update form
+        if(winner === teamA) {
+            recentForm[teamA] = Math.min(0.9, recentForm[teamA] + 0.09);
+            recentForm[teamB] = Math.max(0.2, recentForm[teamB] - 0.06);
+        } else {
+            recentForm[teamB] = Math.min(0.9, recentForm[teamB] + 0.09);
+            recentForm[teamA] = Math.max(0.2, recentForm[teamA] - 0.06);
+        }
+        return winner;
+    }
+
+    function updatePoints(teamA, teamB, winner) {
+        pointsTable[teamA].played++;
+        pointsTable[teamB].played++;
+        if(winner === teamA) {
+            pointsTable[teamA].won++; pointsTable[teamB].lost++;
+            pointsTable[teamA].pts += 2;
+        } else {
+            pointsTable[teamB].won++; pointsTable[teamA].lost++;
+            pointsTable[teamB].pts += 2;
+        }
+        let nrrChange = (Math.random() * 0.4) - 0.2;
+        pointsTable[winner].nrr += nrrChange;
+        pointsTable[winner === teamA ? teamB : teamA].nrr -= nrrChange;
+        TEAMS.forEach(t => { pointsTable[t].nrr = Math.min(1.2, Math.max(-1.2, pointsTable[t].nrr)); });
+    }
+
+    function simulateMatch(teamA, teamB) {
+        if(teamA === teamB) return null;
+        let key = `${teamA}-${teamB}`;
+        if(matchesPlayed.has(key) || matchesPlayed.has(`${teamB}-${teamA}`)) return { alreadyPlayed: true };
+        let winner = predictWinner(teamA, teamB, teamA);
+        updatePoints(teamA, teamB, winner);
+        matchesPlayed.add(key);
+        matchLog.unshift(`${TEAM_NAMES[teamA]} vs ${TEAM_NAMES[teamB]} → ${TEAM_NAMES[winner]} wins`);
+        if(matchLog.length > 12) matchLog.pop();
+        return { winner, teamA, teamB };
+    }
+
+    function simulateAllLeague() {
+        for(let i=0;i<TEAMS.length;i++) {
+            for(let j=i+1;j<TEAMS.length;j++) {
+                let a = TEAMS[i], b = TEAMS[j];
+                if(!matchesPlayed.has(`${a}-${b}`) && !matchesPlayed.has(`${b}-${a}`)) {
+                    simulateMatch(a,b);
+                }
+            }
+        }
+        renderPointsTable();
+        renderPlayoffs();
+        renderMatchLog();
+    }
+
+    function getSortedTeams() {
+        return [...TEAMS].sort((a,b) => {
+            if(pointsTable[a].pts !== pointsTable[b].pts) return pointsTable[b].pts - pointsTable[a].pts;
+            return pointsTable[b].nrr - pointsTable[a].nrr;
+        });
+    }
+
+    function simulateKnockout(t1, t2, stageName) {
+        let winner = predictWinner(t1, t2, t1);
+        let loser = winner === t1 ? t2 : t1;
+        matchLog.unshift(`${stageName}: ${TEAM_NAMES[t1]} vs ${TEAM_NAMES[t2]} → ${TEAM_NAMES[winner]} wins`);
+        return { winner, loser };
+    }
+
+    function renderPlayoffs() {
+        let totalMatches = TEAMS.length * (TEAMS.length-1)/2;
+        if(matchesPlayed.size < totalMatches) {
+            document.getElementById('playoffResults').innerHTML = `<i class="fas fa-chart-line"></i> League stage: ${matchesPlayed.size}/${totalMatches} matches. Complete all to see playoffs.`;
+            document.getElementById('championHighlight').innerHTML = '';
+            return;
+        }
+        let sorted = getSortedTeams();
+        let top4 = sorted.slice(0,4);
+        let q1 = simulateKnockout(top4[0], top4[1], "Qualifier 1");
+        let elim = simulateKnockout(top4[2], top4[3], "Eliminator");
+        let q2 = simulateKnockout(q1.loser, elim.winner, "Qualifier 2");
+        let final = simulateKnockout(q1.winner, q2.winner, "THE FINAL");
+        
+        document.getElementById('playoffResults').innerHTML = `
+            <div style="background:rgba(255,140,80,0.15); border-radius:1rem; padding:0.5rem;">
+                <strong>🏆 CHAMPION: ${TEAM_NAMES[final.winner]} (${final.winner})</strong><br>
+                <span style="font-size:0.7rem;">Qualifier 1: ${TEAM_NAMES[q1.winner]} beat ${TEAM_NAMES[q1.loser]}<br>
+                Eliminator: ${TEAM_NAMES[elim.winner]} beat ${TEAM_NAMES[elim.loser]}<br>
+                Final: ${TEAM_NAMES[final.winner]} crowned</span>
+            </div>
+        `;
+        document.getElementById('championHighlight').innerHTML = `<div style="background:linear-gradient(90deg,#FFB347,#FF6B6B); padding:0.3rem; border-radius:2rem; font-weight:bold;">🏆 ${TEAM_NAMES[final.winner]} are the IPL 2026 Champions 🏆</div>`;
+        renderMatchLog();
+    }
+
+    // Rendering Functions
+    function renderPointsTable() {
+        let tbody = document.getElementById('pointsBody');
+        tbody.innerHTML = '';
+        let sorted = getSortedTeams();
+        sorted.forEach(team => {
+            let row = tbody.insertRow();
+            row.insertCell(0).innerHTML = `<div class="team-badge"><span class="team-icon">${team}</span> ${TEAM_NAMES[team]}</div>`;
+            row.insertCell(1).innerHTML = pointsTable[team].played;
+            row.insertCell(2).innerHTML = pointsTable[team].won;
+            row.insertCell(3).innerHTML = pointsTable[team].lost;
+            row.insertCell(4).innerHTML = `<strong>${pointsTable[team].pts}</strong>`;
+            row.insertCell(5).innerHTML = pointsTable[team].nrr.toFixed(2);
+        });
+    }
+
+    function renderMatchLog() {
+        let logDiv = document.getElementById('matchLog');
+        if(matchLog.length === 0) { logDiv.innerHTML = 'No matches simulated yet.'; return; }
+        logDiv.innerHTML = matchLog.map(log => `<div style="padding:0.2rem 0;"><i class="fas fa-cricket"></i> ${log}</div>`).join('');
+    }
+
+    function resetTournament() {
+        TEAMS.forEach(t => {
+            pointsTable[t] = { played:0, won:0, lost:0, pts:0, nrr:0 };
+            recentForm[t] = 0.5;
+        });
+        matchesPlayed.clear();
+        matchLog = [];
+        renderPointsTable();
+        document.getElementById('playoffResults').innerHTML = `<i class="fas fa-hourglass-half"></i> League stage in progress...`;
+        document.getElementById('championHighlight').innerHTML = '';
+        document.getElementById('resultBox').innerHTML = `<i class="fas fa-cricket"></i> Tournament reset. Select teams to begin.`;
+        renderMatchLog();
+    }
+
+    // Manual Simulation
+    function manualSimulate() {
+        let teamA = document.getElementById('teamA').value;
+        let teamB = document.getElementById('teamB').value;
+        if(teamA === teamB) {
+            document.getElementById('resultBox').innerHTML = `<i class="fas fa-exclamation-triangle"></i> Please select two different teams.`;
+            return;
+        }
+        let key = `${teamA}-${teamB}`;
+        if(matchesPlayed.has(key) || matchesPlayed.has(`${teamB}-${teamA}`)) {
+            document.getElementById('resultBox').innerHTML = `<i class="fas fa-info-circle"></i> Match already played! Use Reset to replay.`;
+            return;
+        }
+        let result = simulateMatch(teamA, teamB);
+        if(result && !result.alreadyPlayed) {
+            document.getElementById('resultBox').innerHTML = `
+                <div><i class="fas fa-chart-line"></i> Prediction Result:</div>
+                <div class="winner-name">🏆 ${TEAM_NAMES[result.winner]} (${result.winner})</div>
+                <div>${TEAM_NAMES[teamA]} vs ${TEAM_NAMES[teamB]} | Winner gets 2 points</div>
+            `;
+        }
+        renderPointsTable();
+        renderMatchLog();
+        let total = TEAMS.length*(TEAMS.length-1)/2;
+        if(matchesPlayed.size === total) renderPlayoffs();
+        else document.getElementById('playoffResults').innerHTML = `<i class="fas fa-chart-line"></i> League stage (${matchesPlayed.size}/${total}) — complete all for playoffs.`;
+    }
+
+    // Dashboard Data (Static Analytics)
+    const WIN_PROBS = [
+        { team:"RCB", prob:11.43, color:"#EC1C24" },{ team:"KKR", prob:10.68, color:"#3A225D" },{ team:"RR", prob:10.66, color:"#2D9CDB" },
+        { team:"CSK", prob:10.49, color:"#F9CD02" },{ team:"DC", prob:10.41, color:"#00008B" },{ team:"MI", prob:9.73, color:"#004BA0" },
+        { team:"LSG", prob:9.59, color:"#A2D9CE" },{ team:"SRH", prob:9.54, color:"#F7A721" },{ team:"GT", prob:9.50, color:"#1B2A4A" },
+        { team:"PBKS", prob:7.97, color:"#ED1B24" }
+    ];
+    const MODELS = [{ name:"Random Forest", acc:"67.1%", auc:0.6995 },{ name:"XGBoost", acc:"65.3%", auc:0.7111 },{ name:"LightGBM", acc:"66.0%", auc:0.7138 }];
+    const OVERSEAS = [
+        { team:"RCB", players:"Salt, Livingstone, Hazlewood" },{ team:"KKR", players:"Narine, Russell, Gurbaz" },{ team:"RR", players:"Buttler, Hetmyer, Boult" },
+        { team:"CSK", players:"Conway, Pathirana, Theekshana" },{ team:"DC", players:"Warner, Marsh, Nortje" },{ team:"MI", players:"de Kock, David, Santner" },
+        { team:"LSG", players:"Stoinis, de Kock, Wood" },{ team:"SRH", players:"Markram, Klaasen, Jansen" },{ team:"GT", players:"Miller, Rashid, Williamson" },
+        { team:"PBKS", players:"Curran, Rabada, Bairstow" }
+    ];
+    
+    function renderStatic() {
+        // Chart
+        const ctx = document.getElementById('winProbChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar', data: { labels: WIN_PROBS.map(p=>p.team), datasets: [{ label: 'Win %', data: WIN_PROBS.map(p=>p.prob), backgroundColor: WIN_PROBS.map(p=>p.color+'CC') }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#ddd' } } }, scales: { y: { ticks: { color: '#ccc' } }, x: { ticks: { color: '#FFDFB5' } } } }
+        });
+        let modelBody = document.getElementById('modelBody');
+        MODELS.forEach(m => { let row = modelBody.insertRow(); row.insertCell(0).innerHTML = `<strong>${m.name}</strong>`; row.insertCell(1).innerHTML = m.acc; row.insertCell(2).innerHTML = m.auc; });
+        let overseasBody = document.getElementById('overseasBody');
+        OVERSEAS.forEach(o => { let row = overseasBody.insertRow(); row.insertCell(0).innerHTML = `<span class="team-badge">${o.team}</span>`; row.insertCell(1).innerHTML = o.players; });
+    }
+    
+    // Event Listeners
+    document.getElementById('simulateBtn').addEventListener('click', manualSimulate);
+    document.getElementById('simulateAllBtn').addEventListener('click', () => { simulateAllLeague(); document.getElementById('resultBox').innerHTML = `<i class="fas fa-check-circle"></i> All league matches simulated!`; });
+    document.getElementById('resetBtn').addEventListener('click', resetTournament);
+    
+    renderPointsTable();
+    renderStatic();
+    renderMatchLog();
+</script>
+</body>
+</html>
